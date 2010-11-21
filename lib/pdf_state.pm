@@ -4,19 +4,22 @@ package pdf_state;
 use strict;
 use Dumpvalue;
 
+use List::Util qw[min max];
+
 require "lib/pdf_matrix.pm";
 
 my $debug = 0;
 
 sub new
 {
-  my $pagenum = shift;
+  my $proto = shift;
+  my $page = shift;
   my $mediabox_ref = shift;
 
   my $self = {};
   my %empty_color = ();
 
-  $self->{page} = $pagenum;
+  $self->{page} = $page;
   $self->{mediabox} = $mediabox_ref;
 
   $self->{fill_color} = \%empty_color;
@@ -55,8 +58,9 @@ sub process
   elsif($opname eq 'l')  { $self->process_l($block)     }
   elsif($opname eq 'F' 
      || $opname eq 'f' 
+     || $opname eq 'f*' 
      || $opname eq 'B' 
-     || $opname eq 'B*') { $self->process_f($block)     }
+     || $opname eq 'B*') { $self->process_fill($block)  }
   elsif($opname eq 're') { $self->process_re($block)    }
   elsif($opname eq 'cs'
      || $opname eq 'CS') { $self->process_cs($block)    }
@@ -71,15 +75,19 @@ sub process
      || $opname eq 'g'
      || $opname eq 'k')  { $self->process_color($block) }
   elsif($opname eq 'Tf') { $self->process_tf($block)    }
-  elsif($opname eq 'Td'
-     || $opname eq 'TD'
-     || $opname eq 'T*') { $self->process_td($block)    }
+  elsif($opname eq 'TL') { $self->process_tl($block)    }
+  elsif($opname eq 'Td') { $self->process_td($block)    }
+  elsif($opname eq 'TD') { $self->process_cap_td($block)}
+  elsif($opname eq 'T*') { $self->process_t_star($block)}
   elsif($opname eq 'Tm') { $self->process_tm($block)    }
-  elsif($opname eq 'Tj'
-     || $opname eq "\'"
-     || $opname eq '\"') { $self->process_tj($block)    }
-  elsif($opname eq 'TJ') { $self->process_capital_tj($block)    }
-  else { print "Still need to handle $opname\n" }
+  elsif($opname eq "\'") { $self->process_squote($block)}
+  elsif($opname eq '\"') { $self->process_dquote($block)}
+  elsif($opname eq 'Tj') { $self->process_tj($block)    }
+  elsif($opname eq 'TJ') { $self->process_cap_tj($block)}
+  else
+  { 
+    # FINISH ME!!! 
+  }
 }
 
 sub process_m
@@ -118,8 +126,12 @@ sub process_l
 }
 
 # Handles f, F, B, and B*
+# These commands fill and/or stroke a previously-defined drawing path. 
+# When this happens we examine the path we've recorded so far to see if it
+# looks like a rectangle. If it does, then we add the rectangle to the list
+# of rectangles. Either way, we reset things for the next polygon.
 
-sub process_f
+sub process_fill
 {
   my $self = shift;
   my $block = shift;
@@ -130,11 +142,19 @@ sub process_f
 
   if($obj->{type} eq 'rect')
   {
-    $obj->{page} = $self->{pagenum};
+    $obj->{page} = $self->{page};
     $obj->{mediabox} = $self->{mediabox};
+
+
     $obj->{fill_color} = $self->{fill_color};
     $obj->{stroke_color} = $self->{stroke_color};
     $obj->{draw_op} = $opname;
+
+    my $objects_ref = $self->{objects};
+    my @objects = @$objects_ref;
+
+    push @objects, $obj;
+    $self->{objects} = \@objects;
 
     if($debug>3)
     {
@@ -200,7 +220,7 @@ sub process_re
     print "Rect from re: ".poly_to_string($self->{poly})."\n";
   }
 
-  return @poly;
+  $self->{poly} = \@poly;
 }
 
 sub process_cs
@@ -355,6 +375,13 @@ sub process_color
   }
 }
 
+# FINISH ME! Do I want to do anything with TLs?
+
+sub process_tl
+{
+  my $self = shift;
+}
+
 sub process_tf
 {
   my $self = shift;
@@ -376,79 +403,107 @@ sub process_tf
   }
 }
 
-sub process_td
+sub process_cap_td
 {
   my $self = shift;
-
   my $block = shift;
 
   my @args = @{$block->{args}};
 
-  my $opname = $block->{name};
-
-  if(($opname eq 'Td' || $opname eq 'TD') && @args != 2)
+  if(@args != 2)
   {
-    print "Error! $opname with ".@args." arguments instead of 2.\n";
+    print "Error! TD with ".@args." arguments instead of 2.\n";
+    return;
   }
-  elsif($opname eq 'T*' && @args != 0)
+
+  $self->{leading} = 0-($args[1]->{value});
+
+  $self->do_td($args[0]->{value}, $args[1]->{value});
+}
+
+sub process_td
+{
+  my $self = shift;
+  my $block = shift;
+
+  my @args = @{$block->{args}};
+
+  if(@args != 2)
   {
-    print "Error! T* with ".@args." arguments instead of 0.\n";
+    print "Error! Td with ".@args." arguments instead of 2.\n";
+    return;
   }
-  else
-  {
-    if($opname eq 'TD')
-    {
-      # FINISH ME! Is this right?
-      $self->{leading} = 0-($args[1]->{value});
-    }
 
-    if($self->{text} ne '')
-    {
-      my $objects_ref = $self->{objects};
-      my @objects = @$objects_ref;
+  $self->do_td($args[0]->{value}, $args[1]->{value});
+}
 
-      my $obj = pdf_object->text(
-          $self->{page},
-          $self->{text}, 
-          $self->{font_size});
+# Process already-accumulated text and then move the text pointer to a new
+# location.
 
-      push @objects, $obj;
+sub do_td
+{
+  my $self = shift;
 
-      if(!$obj->has_type('text'))
-      {
-        print "Error 2!";
-      }
-
-      $self->{objects} = \@objects;
-
-      $self->{text} = '';
-    }
-
-    my $tx;
-    my $ty;
+  $self->process_text;
+  my $tx = shift;
+  my $ty = shift;
 
 # FINISH ME!!!
-#    if($opname eq 'TD' || $opname eq 'Td')
-#    {
 #      $tx = $args[0]->{value};
 #      $ty = $args[1]->{value};
-#    }
-#    elsif($opname eq 'T*')
-#    {
-#      $tx = 0;
-#      $ty = $current_leading;
-#
-#    }
-#    else
-#    {
-#      die "Error: failed to deal with $opname!";
-#    }
 #
 #    $current_x += $tx;
 #    $current_y += $ty;
 #
 #    $current_xscale = 1;
 #    $current_yscale = 1;
+
+}
+
+sub process_t_star
+{
+  my $self = shift;
+  my $block = shift;
+  my @args = @{$block->{args}};
+
+  if(@args != 0)
+  {
+    print "Error! T* with ".@args." arguments instead of 0.\n";
+    return;
+  }
+
+  $self->do_td(0, $self->{current_leading});
+}
+
+# The operators Td, TD, and T* change the position of the text-drawing
+# "pen." When this happens, we take the accumulated text from prior
+# text operations and turn it into a completed text object, then rest
+# things for the next batch of text-drawing commands.
+
+sub process_text
+{
+  my $self = shift;
+
+  if($self->{text} ne '')
+  {
+    my $objects_ref = $self->{objects};
+    my @objects = @$objects_ref;
+
+    my $obj = pdf_object->text(
+        $self->{page},
+        $self->{text}, 
+        $self->{font_size});
+
+    push @objects, $obj;
+
+    if(!$obj->has_type('text'))
+    {
+      print "Error 2!";
+    }
+
+    $self->{objects} = \@objects;
+
+    $self->{text} = '';
   }
 }
 
@@ -505,12 +560,64 @@ sub process_tm
   }
 }
 
+# The single-quote operator is equivalent to a T* followed by a Tj.
+# As such we mimick that series of steps here.
+sub process_squote
+{
+  my $self = shift;
+  my $block = shift;
+  my @args = @{$block->{args}};
+
+  if(@args!=1)
+  {
+    print "Error! Single-quote operator with arguments.\n";
+    return;
+  }
+
+  $self->do_squote($args[0]->{'value'});
+}
+
+sub do_squote
+{
+  my $self = shift;
+  my $string = shift;
+
+  # The T* operator is just a Td operator with the current leading as the
+  # ty value.
+  $self->do_td(0, $self->{current_leading});
+
+  $self->{text} = $string;
+}
+
+# The double-quote operator does some stuff we don't care about and then
+# invokes the single-quote operator.
+
+sub process_dquote
+{
+  my $self = shift;
+  my $block = shift;
+  my @args = @{$block->{args}};
+
+  if(@args!=3)
+  {
+    print "Error! Single-quote operator with arguments.\n";
+    return;
+  }
+
+  # Theoretically, here we would do something with a_w and a_c, the text- and
+  # word-spacing parameters, respectively. But I don't think we actually
+  # care about those.
+
+  $self->do_squote($args[2]->{'value'});
+}
+
+# FINISH ME! Need to change handling of " and ' operators to create new text
+# objects.
+
 sub process_tj
 {
   my $self = shift;
-
   my $block = shift;
-
   my @args = @{$block->{args}};
 
   if (@args >= 1
@@ -523,7 +630,7 @@ sub process_tj
   }
 }
 
-sub process_capital_tj
+sub process_cap_tj
 {
   my $self = shift;
 
@@ -698,9 +805,6 @@ sub get_objects_with_type
 
   foreach my $obj (@$objects_ref)
   {
-    my $dumper = new Dumpvalue;
-    #$dumper->dumpValue($obj);
-
     if($obj->has_type($type))
     {
       push @objects, $obj;
@@ -714,14 +818,21 @@ sub get_rects
 {
   my $self = shift;
 
-  return $self->get_objects_with_type('rect');
+  my $rects_ref = $self->get_objects_with_type('rect');
+
+  return $rects_ref;
 }
 
 sub get_texts
 {
   my $self = shift;
+  my $texts_ref = $self->get_objects_with_type('text');
 
-  return $self->get_objects_with_type('text');
+#  my $dumper = new Dumpvalue;
+#  $dumper->dumpValue($texts_ref);
+
+
+  return $texts_ref;
 }
 
 return 1;

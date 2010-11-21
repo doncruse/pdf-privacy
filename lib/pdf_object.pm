@@ -35,7 +35,7 @@ sub empty
 
 sub text
 {
-  my ($pagenum, $page, $text, $font_size) = @_;
+  my ($self, $pagenum, $text, $font_size) = @_;
 
   my $obj = pdf_object->new;
 
@@ -49,7 +49,7 @@ sub text
 
 sub rect
 {
-  my ($x, $y, $height, $width) = @_;
+  my ($self, $x, $y, $height, $width) = @_;
 
   my $obj = pdf_object->new;
 
