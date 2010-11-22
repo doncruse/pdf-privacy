@@ -27,6 +27,7 @@ sub new
   $self->{stroke_cs}    = '';
   $self->{poly}         = [];
   $self->{objects}      = [];
+  $self->{ct_matrix}    = pdf_matrix->new;
 
   bless $self;
 
@@ -39,6 +40,8 @@ sub new
 sub start_text_block
 {
   my $self = shift;
+
+  $self->process_text;
 
   $self->{line_matrix} = pdf_matrix->new;
   $self->{text_matrix} = pdf_matrix->new;
@@ -423,20 +426,23 @@ sub process_cm
 {
   my $self = shift;
   my $block = shift;
-
   my @args = @{$block->{args}};
 
-  return;
+  print "processing cm\n";
 
-  # TODO: Do something more intelligent with cm.
+  if(@args != 6)
+  {
+    print "Error! cm with ".@args." arguments instead of 6.\n";
+    return;
+  }
 
-  print "cm with args ".
-        "(".$args[0]->{value}.", ".
-            $args[1]->{value}.", ".
-            $args[2]->{value}.", ".
-            $args[3]->{value}.", ".
-            $args[4]->{value}.", ".
-            $args[5]->{value}.")\n";
+  $self->{ct_matrix} = pdf_matrix->new(
+      $args[0]->{value},
+      $args[1]->{value},
+      $args[2]->{value},
+      $args[3]->{value},
+      $args[4]->{value},
+      $args[5]->{value});
 }
 
 sub process_tl
@@ -581,9 +587,7 @@ sub do_td
 
   # Process the text we've already got and put it in a new text object.
 
-  my $trans_matrix = pdf_matrix->trans_matrix($tx, $ty);
-
-  $self->{line_matrix} = $trans_matrix->multiply($self->{line_matrix});
+  $self->{line_matrix}->translate($tx, $ty);
   $self->{text_matrix} = $self->{line_matrix}->copy;
 }
 
@@ -593,9 +597,7 @@ sub move_text_matrix
   my $tx = shift;
   my $ty = shift;
 
-  my $trans_matrix = pdf_matrix->trans_matrix($tx, $ty);
-
-  $self->{text_matrix} = $trans_matrix->multiply($self->{line_matrix});
+  $self->{text_matrix}->translate($tx, $ty);
 }
 
 # Move the pen leading text units to start a new line.
@@ -630,8 +632,10 @@ sub process_text
   my $text_width = $self->get_text_width;
   my $text_height = $self->{font_size}; #TODO: Improve this.
 
-#  my $dumper = new Dumpvalue;
-#  $dumper->dumpValue($self->{text_matrix});
+  my $tx = $self->{text_matrix}->get_tx + $self->{ct_matrix}->get_tx;
+  my $ty = $self->{text_matrix}->get_ty + $self->{ct_matrix}->get_ty;
+
+  print "tx,ty is $tx $ty\n";
 
   # I'm not sure what to do with diagonal text, but it's not very likely
   # to be redacted, so ignoring it seems fine for the first version.
@@ -642,8 +646,8 @@ sub process_text
         $self->{page},
         $self->{text}, 
         $self->{font_size},
-        $self->{text_matrix}->get_tx,
-        $self->{text_matrix}->get_ty,
+        $tx,
+        $ty,
         $text_width,
         $text_height);
 
@@ -660,6 +664,7 @@ sub process_text
     }
   }
 
+  $self->{text_matrix}->translate($text_width,0);
   $self->{text} = '';
   $self->{hoffset} = 0;
 }
@@ -860,41 +865,17 @@ sub process_cap_tj
     if ($element->{type} eq 'string' || $element->{type} eq 'hexstring')
     {
       $self->{text} .= $element->{'value'};
+      print "Adding ".$element->{'value'}."\n";
     }
     elsif ($element->{type} eq 'number')
     {
       $self->{hoffset} += $element->{'value'};
     }
-  }
-}
-
-# If we get to the end of the document with text in current_text, we want
-# to do something with that before we return.
-
-sub get_final_text
-{
-  my $self = shift;
-
-  if($self->{text} ne '')
-  {
-    my $objects_ref = $self->{objects};
-    my @objects = @$objects_ref;
-
-    my $obj = pdf_object->text(
-        $self->{page},
-        $self->{text}, 
-        $self->{font_size});
-
-    if($obj->has_type('text'))
+    else
     {
-      push @objects, $obj;
-      $self->{objects} = \@objects;
+      print "Error! Unrecognized TJ arguments\n";
     }
-
-    $self->{text} = '';
   }
-
-  return '';
 }
 
 # The PDF spec gives us at least two ways to define a rectangle: with the "re"

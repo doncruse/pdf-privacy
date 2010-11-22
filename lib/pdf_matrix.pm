@@ -35,13 +35,15 @@ sub new
   return $self;
 }
 
-sub trans_matrix
+sub translate
 {
-  my $proto = shift;
+  my $self = shift;
   my $tx = shift;
   my $ty = shift;
 
-  return pdf_matrix->new(1,0,0,1,$tx,$ty);
+  my $trans = pdf_matrix->new(1,0,0,1,$tx,$ty);
+
+  $self = $self->multiply($trans);
 }
 
 sub multiply
@@ -107,14 +109,14 @@ sub get_tx
 {
   my $self = shift;
 
-  return $self->{matrix}->[0]->[2];
+  return $self->{matrix}->[2]->[0];
 }
 
 sub get_ty
 {
   my $self = shift;
 
-  return $self->{matrix}->[1]->[2];
+  return $self->{matrix}->[2]->[1];
 }
 
 sub is_horizontal

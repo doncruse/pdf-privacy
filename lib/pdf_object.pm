@@ -43,6 +43,10 @@ sub text
   $obj->{text} = $text;
   $obj->{font_size} = $font_size;
   $obj->{page} = $pagenum;
+  $obj->{x} = $x;
+  $obj->{y} = $y;
+  $obj->{height} = $height;
+  $obj->{width} = $width;
 
   return $obj;
 }
