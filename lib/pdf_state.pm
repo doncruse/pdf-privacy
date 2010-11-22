@@ -19,31 +19,36 @@ sub new
   my $self = {};
   my %empty_color = ();
 
-  $self->{page} = $page;
-  $self->{mediabox} = $mediabox_ref;
-
-  $self->{fill_color} = \%empty_color;
+  $self->{page}         = $page;
+  $self->{mediabox}     = $mediabox_ref;
+  $self->{fill_color}   = \%empty_color;
   $self->{stroke_color} = \%empty_color;
-
-  $self->{fill_cs} = '';
-  $self->{stroke_cs} = '';
-
-  $self->{font_size} = 12;
-
-  $self->{leading} = 0;
-
-  $self->{trans_matrix} = pdf_matrix->new;
-
-  $self->{text_matrix} = pdf_matrix->new;
-
-  $self->{text} = "";
-  $self->{poly} = [];
-
-  $self->{objects} = [];
+  $self->{fill_cs}      = '';
+  $self->{stroke_cs}    = '';
+  $self->{poly}         = [];
+  $self->{objects}      = [];
 
   bless $self;
 
+  $self->start_text_block;
   return $self;
+}
+
+# Called in response to a "BT" command.
+
+sub start_text_block
+{
+  my $self = shift;
+
+  $self->{line_matrix} = pdf_matrix->new;
+  $self->{text_matrix} = pdf_matrix->new;
+  $self->{text}         = "";
+  $self->{hoffset}      = 0;
+  $self->{char_spacing} = 0;
+  $self->{word_spacing} = 0;
+  $self->{font_size}    = 12;
+  $self->{leading}      = 0;
+  $self->{hscale}       = 1;
 }
 
 sub process
@@ -62,8 +67,8 @@ sub process
      || $opname eq 'B' 
      || $opname eq 'B*') { $self->process_fill($block)  }
   elsif($opname eq 're') { $self->process_re($block)    }
-  elsif($opname eq 'cs'
-     || $opname eq 'CS') { $self->process_cs($block)    }
+  elsif($opname eq 'cs') { $self->process_cs($block)    }
+  elsif($opname eq 'CS') { $self->process_cap_cs($block)}
   elsif($opname eq 'SC'
      || $opname eq 'RG'
      || $opname eq 'SCN'
@@ -74,6 +79,10 @@ sub process
      || $opname eq 'scn'
      || $opname eq 'g'
      || $opname eq 'k')  { $self->process_color($block) }
+  elsif($opname eq 'cm') { $self->process_cm($block)    }
+  elsif($opname eq 'n')  { $self->process_n($block)     }
+  elsif($opname eq 'W')  { $self->process_w($block)     }
+  elsif($opname eq 'W*') { $self->process_w_star($block)}
   elsif($opname eq 'Tf') { $self->process_tf($block)    }
   elsif($opname eq 'TL') { $self->process_tl($block)    }
   elsif($opname eq 'Td') { $self->process_td($block)    }
@@ -84,9 +93,12 @@ sub process
   elsif($opname eq '\"') { $self->process_dquote($block)}
   elsif($opname eq 'Tj') { $self->process_tj($block)    }
   elsif($opname eq 'TJ') { $self->process_cap_tj($block)}
+  elsif($opname eq 'Tc') { $self->process_tc($block)    }
+  elsif($opname eq 'Tw') { $self->process_tw($block)    }
+  elsif($opname eq 'Tw') { $self->process_tz($block)    }
   else
-  { 
-    # FINISH ME!!! 
+  {
+    print "Need to deal with $opname\n"; 
   }
 }
 
@@ -171,17 +183,19 @@ sub process_fill
 
   $self->{poly} = [];
 
-  my $objects_ref = $self->{objects};
-  my @objects = @$objects_ref;
+# This doesn't make any sense to me. (11-21-10)
 
-  push @objects, $obj;
-
-  if(!$obj->has_type('rect'))
-  {
-    print "Error 1!";
-  }
-
-  $self->{objects} = \@objects;
+#  my $objects_ref = $self->{objects};
+#  my @objects = @$objects_ref;
+#
+#  push @objects, $obj;
+#
+#  if(!$obj->has_type('rect'))
+#  {
+#    print "Error 1!";
+#  }
+#
+#  $self->{objects} = \@objects;
 }
 
 # The PDF spec includes a "re" command that defines a rectangle directly.
@@ -223,25 +237,40 @@ sub process_re
   $self->{poly} = \@poly;
 }
 
+# Set the current color space for stroking operations
+
+sub process_cap_cs
+{
+  my $self = shift;
+  my $block = shift;
+  my @args = @{$block->{args}};
+
+  if(@args != 1)
+  {
+    print "Error! cs with ".@args." arguments.\n";
+  }
+
+  $self->{stroke_cs} = $args[0]{'value'};
+}
+
+# Set the current color space for non-stroking operations
+
 sub process_cs
 {
   my $self = shift;
-
   my $block = shift;
-
   my @args = @{$block->{args}};
 
-  my $opname = $block->{name};
+  if(@args != 1)
+  {
+    print "Error! cs with ".@args." arguments.\n";
+  }
 
-  if($opname eq 'CS')
-  {
-    $self->{stroke_cs} = $args[0]{'value'};
-  }
-  elsif($opname eq 'cs')
-  {
-    $self->{fill_cs} = $args[0]{'value'};
-  }
+  $self->{fill_cs} = $args[0]{'value'};
 }
+
+# TODO: Refactor this so there's a separate function for each operation
+# that calls the relevant color-based function (g, rbg, etc).
 
 sub process_color
 {
@@ -375,11 +404,106 @@ sub process_color
   }
 }
 
-# FINISH ME! Do I want to do anything with TLs?
+sub process_n
+{
+  # n is basically a no-op since we don't care about clipping paths.
+}
+
+sub process_w
+{
+  # W is basically a no-op since we don't care about clipping paths.
+}
+
+sub process_w_star
+{
+  # W* is basically a no-op since we don't care about clipping paths.
+}
+
+sub process_cm
+{
+  my $self = shift;
+  my $block = shift;
+
+  my @args = @{$block->{args}};
+
+  return;
+
+  # TODO: Do something more intelligent with cm.
+
+  print "cm with args ".
+        "(".$args[0]->{value}.", ".
+            $args[1]->{value}.", ".
+            $args[2]->{value}.", ".
+            $args[3]->{value}.", ".
+            $args[4]->{value}.", ".
+            $args[5]->{value}.")\n";
+}
 
 sub process_tl
 {
   my $self = shift;
+  my $block = shift;
+
+  my @args = @{$block->{args}};
+
+  if(@args != 1)
+  {
+    print "Error! TL with ".@args." arguments instead of 1.\n";
+    return;
+  }
+
+  $self->{leading} = $args[0]->{value};
+}
+
+sub process_tz
+{
+  my $self = shift;
+  my $block = shift;
+
+  my @args = @{$block->{args}};
+
+  if(@args != 1)
+  {
+    print "Error! Tz with ".@args." arguments instead of 1.\n";
+    return;
+  }
+
+  $self->process_text;
+  $self->{hscale} = $args[0]->{value}/100;
+}
+
+sub process_tc
+{
+  my $self = shift;
+  my $block = shift;
+
+  my @args = @{$block->{args}};
+
+  if(@args != 1)
+  {
+    print "Error! Tc with ".@args." arguments instead of 1.\n";
+    return;
+  }
+
+  $self->process_text;
+  $self->{char_spacing} = $args[0]->{value};
+}
+
+sub process_tw
+{
+  my $self = shift;
+  my $block = shift;
+
+  my @args = @{$block->{args}};
+
+  if(@args != 1)
+  {
+    print "Error! Tw with ".@args." arguments instead of 1.\n";
+    return;
+  }
+
+  $self->process_text;
+  $self->{word_spacing} = $args[0]->{value};
 }
 
 sub process_tf
@@ -390,18 +514,21 @@ sub process_tf
 
   my @args = @{$block->{args}};
 
-  if(@args == 2 && $args[-1]->{type} eq 'number')
+  if(@args == 2 && $args[1]->{type} eq 'number')
   {
-    $self->{font_size} = $args[-1]->{value};
+    $self->process_text;
+    $self->{font_size} = $args[1]->{value};
   }
   else
   {
     my $n = @args;
-    my $type = $args[-1]->{type};
+    my $type = $args[1]->{type};
 
     print "Error! n is $n, type is $type\n";
   }
 }
+
+# Move to the start of the next line, setting the leading as a side-effect
 
 sub process_cap_td
 {
@@ -416,10 +543,14 @@ sub process_cap_td
     return;
   }
 
-  $self->{leading} = 0-($args[1]->{value});
+  $self->process_text;
 
   $self->do_td($args[0]->{value}, $args[1]->{value});
+
+  $self->{leading} = 0-($args[1]->{value});
 }
+
+# Move to the start of the next line.
 
 sub process_td
 {
@@ -434,6 +565,8 @@ sub process_td
     return;
   }
 
+  $self->process_text;
+
   $self->do_td($args[0]->{value}, $args[1]->{value});
 }
 
@@ -443,22 +576,29 @@ sub process_td
 sub do_td
 {
   my $self = shift;
-
-  $self->process_text;
   my $tx = shift;
   my $ty = shift;
 
-# FINISH ME!!!
-#      $tx = $args[0]->{value};
-#      $ty = $args[1]->{value};
-#
-#    $current_x += $tx;
-#    $current_y += $ty;
-#
-#    $current_xscale = 1;
-#    $current_yscale = 1;
+  # Process the text we've already got and put it in a new text object.
 
+  my $trans_matrix = pdf_matrix->trans_matrix($tx, $ty);
+
+  $self->{line_matrix} = $trans_matrix->multiply($self->{line_matrix});
+  $self->{text_matrix} = $self->{line_matrix}->copy;
 }
+
+sub move_text_matrix
+{
+  my $self = shift;
+  my $tx = shift;
+  my $ty = shift;
+
+  my $trans_matrix = pdf_matrix->trans_matrix($tx, $ty);
+
+  $self->{text_matrix} = $trans_matrix->multiply($self->{line_matrix});
+}
+
+# Move the pen leading text units to start a new line.
 
 sub process_t_star
 {
@@ -472,96 +612,110 @@ sub process_t_star
     return;
   }
 
-  $self->do_td(0, $self->{current_leading});
+  $self->process_text;
+
+  $self->do_td(0, $self->{leading});
 }
 
-# The operators Td, TD, and T* change the position of the text-drawing
-# "pen." When this happens, we take the accumulated text from prior
-# text operations and turn it into a completed text object, then rest
+# Take the accumulated text from prior
+# text operations and turn it into a completed text object, then reset
 # things for the next batch of text-drawing commands.
 
 sub process_text
 {
   my $self = shift;
 
-  if($self->{text} ne '')
-  {
-    my $objects_ref = $self->{objects};
-    my @objects = @$objects_ref;
+  return if($self->{text} eq '');
 
+  my $text_width = $self->get_text_width;
+  my $text_height = $self->{font_size}; #TODO: Improve this.
+
+#  my $dumper = new Dumpvalue;
+#  $dumper->dumpValue($self->{text_matrix});
+
+  # I'm not sure what to do with diagonal text, but it's not very likely
+  # to be redacted, so ignoring it seems fine for the first version.
+  # TODO: Deal with diagonal text more intelligently.
+  if($self->{text_matrix}->is_horizontal)
+  {
     my $obj = pdf_object->text(
         $self->{page},
         $self->{text}, 
-        $self->{font_size});
-
-    push @objects, $obj;
+        $self->{font_size},
+        $self->{text_matrix}->get_tx,
+        $self->{text_matrix}->get_ty,
+        $text_width,
+        $text_height);
 
     if(!$obj->has_type('text'))
     {
-      print "Error 2!";
+      print "Error in text object creation!";
     }
-
-    $self->{objects} = \@objects;
-
-    $self->{text} = '';
+    else
+    {
+      my $objects_ref = $self->{objects};
+      my @objects = @$objects_ref;
+      push @objects, $obj;
+      $self->{objects} = \@objects;
+    }
   }
+
+  $self->{text} = '';
+  $self->{hoffset} = 0;
 }
+
+# Set the text matrix. This is complicated and probably needs a better comment.
 
 sub process_tm
 {
   my $self = shift;
-
   my $block = shift;
-
   my @args = @{$block->{args}};
 
   if(@args != 6)
   {
     print "Error! Tm with ".@args." arguments instead of 6.\n";
+    return;
   }
-  elsif($args[1]->{value} != 0 || $args[2]->{value} != 0)
-  {
-    print "Warning: found non-horizontal text:";
-    print "(".$args[0]->{value}.", ".
-              $args[1]->{value}.", ".
-              $args[2]->{value}.", ".
-              $args[3]->{value}.") Ignoring.\n";
-  }
-  else
-  {
-    if($self->{text} ne '')
-    {
-      my $objects_ref = $self->{objects};
-      my @objects = @$objects_ref;
 
-      my $obj = pdf_object->text(
-          $self->{page},
-          $self->{text}, 
-          $self->{font_size});
+#  if($self->{text} ne '')
+#  {
+#    my $objects_ref = $self->{objects};
+#    my @objects = @$objects_ref;
+#
+#    my $obj = pdf_object->text(
+#        $self->{page},
+#        $self->{text}, 
+#        $self->{font_size});
+#
+#    push @objects, $obj;
+#
+#    if(!$obj->has_type('text'))
+#    {
+#      print "Error 3!";
+#    }
+#
+#    $self->{objects} = \@objects;
+#
+#    $self->{text} = '';
+#  }
 
-      push @objects, $obj;
+  $self->process_text;
 
-      if(!$obj->has_type('text'))
-      {
-        print "Error 3!";
-      }
+  $self->{text_matrix} = pdf_matrix->new(
+      $args[0]->{value},
+      $args[1]->{value},
+      $args[2]->{value},
+      $args[3]->{value},
+      $args[4]->{value},
+      $args[5]->{value});
 
-      $self->{objects} = \@objects;
-
-      $self->{text} = '';
-    }
-
-    # FINISH ME!!!
-    #$current_xscale = $args[0]->{value};
-    #$current_yscale = $args[3]->{value};
-    # I think this is wrong.
-    #$current_x = $args[4]->{value};
-    #$current_y = $args[5]->{value};
-  }
+  $self->{line_matrix} = $self->{text_matrix}->copy;
 }
 
 # The single-quote operator is equivalent to a T* followed by a Tj.
 # As such we mimick that series of steps here.
+
 sub process_squote
 {
   my $self = shift;
@@ -577,14 +731,18 @@ sub process_squote
   $self->do_squote($args[0]->{'value'});
 }
 
+# Do a Td operation and then remember the first argument as the current text.
+
 sub do_squote
 {
   my $self = shift;
   my $string = shift;
 
+  $self->process_text;
+
   # The T* operator is just a Td operator with the current leading as the
   # ty value.
-  $self->do_td(0, $self->{current_leading});
+  $self->do_td(0, $self->{leading});
 
   $self->{text} = $string;
 }
@@ -604,15 +762,13 @@ sub process_dquote
     return;
   }
 
-  # Theoretically, here we would do something with a_w and a_c, the text- and
-  # word-spacing parameters, respectively. But I don't think we actually
-  # care about those.
+  $self->{word_spacing} = $args[0]->{value};
+  $self->{char_spacing} = $args[1]->{value};
 
   $self->do_squote($args[2]->{'value'});
 }
 
-# FINISH ME! Need to change handling of " and ' operators to create new text
-# objects.
+# Add a string to the current text.
 
 sub process_tj
 {
@@ -620,43 +776,100 @@ sub process_tj
   my $block = shift;
   my @args = @{$block->{args}};
 
-  if (@args >= 1
-      && ($args[-1]->{type} eq 'string'
-          || $args[-1]->{type} eq 'hexstring'))
+  if (@args != 1)
   {
-    my $hash_ref = $args[-1];
-
-    $self->{text} .= $args[-1]->{'value'};
+    print "Error! Found tj with ".@args." arguments instead of 1.\n";
+    return;
   }
+
+  if(  $args[0]->{type} ne 'string'
+    && $args[0]->{type} ne 'hexstring')
+  {
+    print "Error! Found Tj with type of ".$args[0]->{type}."\n";
+    return;
+  }
+
+  $self->{text} .= $args[0]->{'value'};
 }
+
+# The "real" PDF spec creates a new text object for every text-drawing
+# operation, but we'd like to deal with fewer text objects and our layout
+# algorithm isn't that precise anyway. So we just maintain a variable
+# called hoffset that tells us how wide the text string is so far.
+# Here we update it based on new text.
+
+sub get_text_width
+{
+  my $self = shift;
+
+  my $text = $self->{text};
+
+  my $width = get_width_for_string($text);
+
+  my $char_spacing = $self->{char_spacing} * length($text);
+ 
+  my $space_count = ($text =~ tr/ //); # Note: this destroys $text
+
+  my $word_spacing = $self->{word_spacing} * $space_count;
+
+  return (($width-$self->{hoffset}/1000)*$self->{font_size}
+                 +$char_spacing
+                 +$word_spacing)
+             * $self->{hscale};
+}
+
+# In an ideal world we'd take the font as an additional argument and look up
+# the actual widths for each character in that font. But for now we're going
+# to approximate it by saying that the average character in the average
+# font is half as wide as it is tall.
+
+sub get_width_for_string
+{
+  my $text = shift;
+
+  return 0.5 * length($text);
+}
+
+
+# Add some strings to the current text, with flexible placing.
 
 sub process_cap_tj
 {
   my $self = shift;
-
   my $block = shift;
-
   my @args = @{$block->{args}};
 
-  if (@args == 1 && $args[0]->{type} eq 'array')
+  if (@args != 1)
   {
-    my $s = '';
+    print "Error! TJ with ".@args." arguments instead of 1.\n";
+    return;
+  }
 
-    my @strings = @{$args[0]->{value}};
+  if($args[0]->{type} ne 'array')
+  {
+    print "Error! TJ with argument type ".$args[0]->{type}."\n";
+    return;
+  }
 
-    foreach my $element (@strings)
+  my $s = '';
+
+  my @strings = @{$args[0]->{value}};
+
+  foreach my $element (@strings)
+  {
+    if ($element->{type} eq 'string' || $element->{type} eq 'hexstring')
     {
-      if ($element->{type} eq 'string' || $element->{type} eq 'hexstring')
-      {
-        $self->{text} .= $element->{'value'};
-      }
-      elsif ($element->{type} eq 'number')
-      {
-        # We might want to do something here some day.
-      }
+      $self->{text} .= $element->{'value'};
+    }
+    elsif ($element->{type} eq 'number')
+    {
+      $self->{hoffset} += $element->{'value'};
     }
   }
 }
+
+# If we get to the end of the document with text in current_text, we want
+# to do something with that before we return.
 
 sub get_final_text
 {
@@ -774,7 +987,7 @@ sub get_rect_from_poly
   my $x = min($v0[0], $v2[0]);
   my $y = min($v0[1], $v2[1]);
 
-  return pdf_object->rect($x, $y, $height, $width);
+  return pdf_object->rect($x, $y, $width, $height);
 }
 
 # Takes a list of points (which are references to 2-element arrays)

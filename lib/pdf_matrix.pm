@@ -35,6 +35,15 @@ sub new
   return $self;
 }
 
+sub trans_matrix
+{
+  my $proto = shift;
+  my $tx = shift;
+  my $ty = shift;
+
+  return pdf_matrix->new(1,0,0,1,$tx,$ty);
+}
+
 sub multiply
 {
   my $self = shift;
@@ -57,6 +66,28 @@ sub multiply
   return new pdf_matrix($result);
 }
 
+sub copy
+{
+  my $self = shift;
+
+  my $old_ref = $self->{matrix};
+
+  my @new = ();
+
+  foreach my $row (@$old_ref)
+  {
+    my @new_row = ();
+    foreach my $e (@$row)
+    {
+      push @new_row, $e;
+    }
+
+    push @new, \@new_row;
+  }
+
+  return pdf_matrix->new(\@new);
+}
+
 sub to_string
 {
   my $self = shift;
@@ -70,6 +101,29 @@ sub to_string
   }
 
   return "[".join("]\n[", @lines)."]\n";
+}
+
+sub get_tx
+{
+  my $self = shift;
+
+  return $self->{matrix}->[0]->[2];
+}
+
+sub get_ty
+{
+  my $self = shift;
+
+  return $self->{matrix}->[1]->[2];
+}
+
+sub is_horizontal
+{
+  my $self = shift;
+
+  return 0 if($self->{matrix}->[1]->[0] != 0);
+  return 0 if($self->{matrix}->[0]->[1] != 0);
+  return 1;
 }
 
 return 1;
