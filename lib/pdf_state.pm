@@ -41,8 +41,6 @@ sub start_text_block
 {
   my $self = shift;
 
-  $self->process_text;
-
   $self->{line_matrix} = pdf_matrix->new;
   $self->{text_matrix} = pdf_matrix->new;
   $self->{text}         = "";
@@ -58,17 +56,21 @@ sub process
 {
   my $self = shift;
   my $block = shift;
-
-  my @args = @{$block->{args}};
   my $opname = $block->{name};
+
+#  print "\n\n\n----------\n\n\n";
+#
+#  my $dumper = new Dumpvalue;
+#  $dumper->dumpValue($block);
 
   if   ($opname eq 'm')  { $self->process_m($block)     }
   elsif($opname eq 'l')  { $self->process_l($block)     }
-  elsif($opname eq 'F' 
-     || $opname eq 'f' 
-     || $opname eq 'f*' 
-     || $opname eq 'B' 
-     || $opname eq 'B*') { $self->process_fill($block)  }
+  elsif($opname eq 'h')  { $self->process_h($block)     }
+  elsif($opname eq 'F')  { $self->process_cap_f($block) }
+  elsif($opname eq 'f')  { $self->process_f($block)     }
+  elsif($opname eq 'f*') { $self->process_f_star($block)}
+  elsif($opname eq 'B')  { $self->process_b($block)     }
+  elsif($opname eq 'B*') { $self->process_b_star($block)}
   elsif($opname eq 're') { $self->process_re($block)    }
   elsif($opname eq 'cs') { $self->process_cs($block)    }
   elsif($opname eq 'CS') { $self->process_cap_cs($block)}
@@ -84,8 +86,11 @@ sub process
      || $opname eq 'k')  { $self->process_color($block) }
   elsif($opname eq 'cm') { $self->process_cm($block)    }
   elsif($opname eq 'n')  { $self->process_n($block)     }
-  elsif($opname eq 'W')  { $self->process_w($block)     }
+  elsif($opname eq 'W')  { $self->process_cap_w($block) }
   elsif($opname eq 'W*') { $self->process_w_star($block)}
+  elsif($opname eq 'w')  { $self->process_w($block)     }
+  elsif($opname eq 'S')  { $self->process_cap_s($block) }
+  elsif($opname eq 's')  { $self->process_s($block)     }
   elsif($opname eq 'Tf') { $self->process_tf($block)    }
   elsif($opname eq 'TL') { $self->process_tl($block)    }
   elsif($opname eq 'Td') { $self->process_td($block)    }
@@ -104,6 +109,8 @@ sub process
     print "Need to deal with $opname\n"; 
   }
 }
+
+# Begin polygon at the given coordinates.
 
 sub process_m
 {
@@ -124,12 +131,12 @@ sub process_m
 sub process_l
 {
   my $self = shift;
-
   my $block = shift;
-
   my @args = @{$block->{args}};
 
   my @coords = ($args[0]{'value'},$args[1]{'value'});
+
+#  print "Line to (".join(",",@coords).")\n";
 
   push(@{$self->{poly}}, \@coords);
 
@@ -140,18 +147,84 @@ sub process_l
   }
 }
 
+sub process_h
+{
+  my $self = shift;
+  my $block = shift;
+  $self->do_h;
+}
+
+sub do_h
+{
+  my $self = shift;
+
+  my $first_x = $self->{poly}->[0]->[0];
+  my $first_y = $self->{poly}->[0]->[1];
+  my $last_x = $self->{poly}->[-1]->[0];
+  my $last_y = $self->{poly}->[-1]->[1];
+
+  # No need to close the path if it's already closed.
+
+  if($first_x == $last_x && $first_y == $last_y)
+  {
+    return;
+  }
+
+  my @coords = ($first_x, $first_y);
+
+  push(@{$self->{poly}}, \@coords);
+}
+
+sub process_b_star
+{
+  my $self = shift;
+  my $block = shift;
+
+  $self->do_fill('B*');
+}
+
+sub process_b
+{
+  my $self = shift;
+  my $block = shift;
+
+  $self->do_fill('B');
+}
+
+sub process_cap_f
+{
+  my $self = shift;
+  my $block = shift;
+
+  $self->do_fill('F');
+}
+
+sub process_f
+{
+  my $self = shift;
+  my $opname = shift;
+
+  $self->do_fill('f');
+}
+
+sub process_f_star
+{
+  my $self = shift;
+  my $opname = shift;
+
+  $self->do_fill('f*');
+}
+
 # Handles f, F, B, and B*
 # These commands fill and/or stroke a previously-defined drawing path. 
 # When this happens we examine the path we've recorded so far to see if it
 # looks like a rectangle. If it does, then we add the rectangle to the list
 # of rectangles. Either way, we reset things for the next polygon.
 
-sub process_fill
+sub do_fill
 {
   my $self = shift;
-  my $block = shift;
-
-  my $opname = $block->{name};
+  my $opname = shift;
 
   my $obj = get_rect_from_poly($self->{poly});
 
@@ -180,25 +253,18 @@ sub process_fill
   {
     if($debug>3)
     {
-      print "f: Did not add rectangle\n";
+      print "fill: Did not add rectangle\n";
     }
   }
 
   $self->{poly} = [];
+}
 
-# This doesn't make any sense to me. (11-21-10)
+sub process_w
+{
+  my $self = shift;
 
-#  my $objects_ref = $self->{objects};
-#  my @objects = @$objects_ref;
-#
-#  push @objects, $obj;
-#
-#  if(!$obj->has_type('rect'))
-#  {
-#    print "Error 1!";
-#  }
-#
-#  $self->{objects} = \@objects;
+  # No-op since we don't care about line widths.
 }
 
 # The PDF spec includes a "re" command that defines a rectangle directly.
@@ -407,12 +473,34 @@ sub process_color
   }
 }
 
+sub process_s
+{
+  my $self = shift;
+  my $block = shift;
+  $self->do_h;
+  $self->do_cap_s;
+}
+
+sub process_cap_s
+{
+  my $self = shift;
+  my $block = shift;
+  $self->do_cap_s;
+}
+
+sub do_cap_s
+{
+  my $self = shift;
+
+  # A no-op since we don't care about stroking.
+}
+
 sub process_n
 {
   # n is basically a no-op since we don't care about clipping paths.
 }
 
-sub process_w
+sub process_cap_w
 {
   # W is basically a no-op since we don't care about clipping paths.
 }
@@ -427,8 +515,6 @@ sub process_cm
   my $self = shift;
   my $block = shift;
   my @args = @{$block->{args}};
-
-  print "processing cm\n";
 
   if(@args != 6)
   {
@@ -474,7 +560,6 @@ sub process_tz
     return;
   }
 
-  $self->process_text;
   $self->{hscale} = $args[0]->{value}/100;
 }
 
@@ -491,7 +576,6 @@ sub process_tc
     return;
   }
 
-  $self->process_text;
   $self->{char_spacing} = $args[0]->{value};
 }
 
@@ -508,7 +592,6 @@ sub process_tw
     return;
   }
 
-  $self->process_text;
   $self->{word_spacing} = $args[0]->{value};
 }
 
@@ -522,7 +605,6 @@ sub process_tf
 
   if(@args == 2 && $args[1]->{type} eq 'number')
   {
-    $self->process_text;
     $self->{font_size} = $args[1]->{value};
   }
   else
@@ -549,8 +631,6 @@ sub process_cap_td
     return;
   }
 
-  $self->process_text;
-
   $self->do_td($args[0]->{value}, $args[1]->{value});
 
   $self->{leading} = 0-($args[1]->{value});
@@ -570,8 +650,6 @@ sub process_td
     print "Error! Td with ".@args." arguments instead of 2.\n";
     return;
   }
-
-  $self->process_text;
 
   $self->do_td($args[0]->{value}, $args[1]->{value});
 }
@@ -614,8 +692,6 @@ sub process_t_star
     return;
   }
 
-  $self->process_text;
-
   $self->do_td(0, $self->{leading});
 }
 
@@ -626,16 +702,18 @@ sub process_t_star
 sub process_text
 {
   my $self = shift;
+  my $text = shift;
+  my $hoffset = shift;
 
-  return if($self->{text} eq '');
-
-  my $text_width = $self->get_text_width;
-  my $text_height = $self->{font_size}; #TODO: Improve this.
-
+  my $text_width = $self->get_text_width($text,$hoffset)
+                    * $self->{text_matrix}->get_xscale
+                    * $self->{ct_matrix}->get_xscale;
+  my $text_height = $self->{font_size} 
+                    * $self->{text_matrix}->get_yscale
+                    * $self->{ct_matrix}->get_yscale;
+                  
   my $tx = $self->{text_matrix}->get_tx + $self->{ct_matrix}->get_tx;
   my $ty = $self->{text_matrix}->get_ty + $self->{ct_matrix}->get_ty;
-
-  print "tx,ty is $tx $ty\n";
 
   # I'm not sure what to do with diagonal text, but it's not very likely
   # to be redacted, so ignoring it seems fine for the first version.
@@ -644,7 +722,7 @@ sub process_text
   {
     my $obj = pdf_object->text(
         $self->{page},
-        $self->{text}, 
+        $text, 
         $self->{font_size},
         $tx,
         $ty,
@@ -665,8 +743,6 @@ sub process_text
   }
 
   $self->{text_matrix}->translate($text_width,0);
-  $self->{text} = '';
-  $self->{hoffset} = 0;
 }
 
 # Set the text matrix. This is complicated and probably needs a better comment.
@@ -682,30 +758,6 @@ sub process_tm
     print "Error! Tm with ".@args." arguments instead of 6.\n";
     return;
   }
-
-#  if($self->{text} ne '')
-#  {
-#    my $objects_ref = $self->{objects};
-#    my @objects = @$objects_ref;
-#
-#    my $obj = pdf_object->text(
-#        $self->{page},
-#        $self->{text}, 
-#        $self->{font_size});
-#
-#    push @objects, $obj;
-#
-#    if(!$obj->has_type('text'))
-#    {
-#      print "Error 3!";
-#    }
-#
-#    $self->{objects} = \@objects;
-#
-#    $self->{text} = '';
-#  }
-
-  $self->process_text;
 
   $self->{text_matrix} = pdf_matrix->new(
       $args[0]->{value},
@@ -742,8 +794,6 @@ sub do_squote
 {
   my $self = shift;
   my $string = shift;
-
-  $self->process_text;
 
   # The T* operator is just a Td operator with the current leading as the
   # ty value.
@@ -794,7 +844,7 @@ sub process_tj
     return;
   }
 
-  $self->{text} .= $args[0]->{'value'};
+  $self->process_text($args[0]->{value}, 0);
 }
 
 # The "real" PDF spec creates a new text object for every text-drawing
@@ -806,8 +856,8 @@ sub process_tj
 sub get_text_width
 {
   my $self = shift;
-
-  my $text = $self->{text};
+  my $text = shift;
+  my $hoffset = shift;
 
   my $width = get_width_for_string($text);
 
@@ -817,7 +867,7 @@ sub get_text_width
 
   my $word_spacing = $self->{word_spacing} * $space_count;
 
-  return (($width-$self->{hoffset}/1000)*$self->{font_size}
+  return (($width-$hoffset/1000)*$self->{font_size}
                  +$char_spacing
                  +$word_spacing)
              * $self->{hscale};
@@ -856,7 +906,8 @@ sub process_cap_tj
     return;
   }
 
-  my $s = '';
+  my $text = '';
+  my $hoffset = 0;
 
   my @strings = @{$args[0]->{value}};
 
@@ -864,18 +915,19 @@ sub process_cap_tj
   {
     if ($element->{type} eq 'string' || $element->{type} eq 'hexstring')
     {
-      $self->{text} .= $element->{'value'};
-      print "Adding ".$element->{'value'}."\n";
+      $text .= $element->{'value'};
     }
     elsif ($element->{type} eq 'number')
     {
-      $self->{hoffset} += $element->{'value'};
+      $hoffset += $element->{'value'};
     }
     else
     {
       print "Error! Unrecognized TJ arguments\n";
     }
   }
+
+  $self->process_text($text, $hoffset);
 }
 
 # The PDF spec gives us at least two ways to define a rectangle: with the "re"
@@ -891,6 +943,9 @@ sub get_rect_from_poly
   # as not a well-formed rectangle.
 
   my $poly_ref = shift;
+
+#  my $dumper = new Dumpvalue;
+#  $dumper->dumpValue($poly_ref);
 
   my @poly = @$poly_ref;
 
@@ -1024,7 +1079,6 @@ sub get_texts
 
 #  my $dumper = new Dumpvalue;
 #  $dumper->dumpValue($texts_ref);
-
 
   return $texts_ref;
 }

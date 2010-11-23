@@ -119,6 +119,20 @@ sub get_ty
   return $self->{matrix}->[2]->[1];
 }
 
+sub get_xscale
+{
+  my $self = shift;
+
+  return $self->{matrix}->[0]->[0];
+}
+
+sub get_yscale
+{
+  my $self = shift;
+
+  return $self->{matrix}->[1]->[1];
+}
+
 sub is_horizontal
 {
   my $self = shift;

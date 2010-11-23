@@ -19,7 +19,18 @@ sub new
 
 sub to_string
 {
-  return "";
+  my $self = shift;
+
+  if($self->{type} eq 'text')
+  {
+    return "Text object (".$self->{x}.", ".$self->{y}.") [".
+         $self->{width}." by ".$self->{height}."]: ".$self->{text};
+  }
+  if($self->{type} eq 'rect')
+  {
+    return "Rect object (".$self->{x}.", ".$self->{y}.") [".
+         $self->{width}." by ".$self->{height}."]: Some color";
+  }
 }
 
 sub empty
@@ -44,7 +55,12 @@ sub text
   $obj->{font_size} = $font_size;
   $obj->{page} = $pagenum;
   $obj->{x} = $x;
-  $obj->{y} = $y;
+
+  # NOTE: This is a HUGE hack to deal with the fact that the origin of a
+  # glyph is not its geometric bottom. Typical glyphs are ~25% below the "line"
+  # and ~75% above it.
+
+  $obj->{y} = $y-$height*.25;
   $obj->{height} = $height;
   $obj->{width} = $width;
 
