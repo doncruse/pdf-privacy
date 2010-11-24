@@ -104,10 +104,18 @@ sub process
   elsif($opname eq 'Tc') { $self->process_tc($block)    }
   elsif($opname eq 'Tw') { $self->process_tw($block)    }
   elsif($opname eq 'Tw') { $self->process_tz($block)    }
+  elsif($opname eq 'gs') { $self->noop($block)          }
+  elsif($opname eq 'ri') { $self->noop($block)          }
+  elsif($opname eq 'i')  { $self->noop($block)          }
   else
   {
     print "Need to deal with $opname\n"; 
   }
+}
+
+sub noop
+{
+  # Do nothing...
 }
 
 # Begin polygon at the given coordinates.
