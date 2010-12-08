@@ -12,9 +12,9 @@ my $content;
 
 while(<F>) { $content .= $_; }
 
-my $redactions =  get_bad_redactions($content);
+my $redactions = get_bad_redactions($content);
 
-foreach(keys(%$redactions))
+foreach(sort keys(%$redactions))
 {
   print "Page $_ : ".$redactions->{$_}."\n";
 }
