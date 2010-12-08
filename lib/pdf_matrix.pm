@@ -43,7 +43,7 @@ sub translate
 
   my $trans = pdf_matrix->new(1,0,0,1,$tx,$ty);
 
-  $self = $self->multiply($trans);
+  $self->{matrix} = $self->multiply($trans)->{matrix};
 }
 
 sub multiply
