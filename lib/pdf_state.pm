@@ -109,7 +109,7 @@ sub process
   elsif($opname eq 'i')  { $self->noop($block)          }
   else
   {
-    print "Need to deal with $opname\n"; 
+    #print "Need to deal with $opname\n"; 
   }
 }
 
@@ -927,7 +927,33 @@ sub process_cap_tj
     }
     elsif ($element->{type} eq 'number')
     {
-      $hoffset += $element->{'value'};
+      my $off = $element->{'value'};
+
+      if($off <-1000)
+      {
+        $self->process_text($text, $hoffset);
+
+        $text = '';
+        $hoffset = 0;
+
+        my $jump = $self->get_text_width("",$off)
+                 * $self->{text_matrix}->get_xscale
+                 * $self->{ct_matrix}->get_xscale;
+
+        $self->{text_matrix}->translate($jump,0);
+      }
+      else
+      {
+        if($off <-200)
+        {
+          $text .= " ";
+          $hoffset += get_width_for_string(" ")*1000;
+        }
+
+        # Is this right? Rightward movement seems to be negative so maybe
+        # we should be subtracting here?
+        $hoffset += $off;
+      }
     }
     else
     {
