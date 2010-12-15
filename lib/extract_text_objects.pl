@@ -1,6 +1,6 @@
 use lib './lib';
 
-use Mydump;
+use render_callback;
 
 sub get_text_rects
 {
@@ -9,13 +9,13 @@ sub get_text_rects
 
   return () if(!defined($tree));
 
-  Mydump->init($pagenum);
+  render_callback->init($pagenum);
 
-  $tree->render("Mydump");
+  $tree->render("render_callback");
 
-  my @list = Mydump->getList;
+  my @list = render_callback->getList;
 
-  return Mydump->getList;
+  return render_callback->getList;
 }
 
 1;
