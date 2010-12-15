@@ -10,6 +10,7 @@ use strict;
 use Data::Dumper;
 require "lib/pdf_state.pm";
 require "lib/pdf_object.pm";
+require "lib/extract_text_objects.pl";
 
 use List::Util qw[min max];
 use CAM::PDF;
@@ -50,7 +51,7 @@ sub get_bad_redactions
     {
       if(is_redaction($rect))
       {
-        foreach my $text(@$texts_ref)
+        foreach my $text (@$texts_ref)
         {
           if(is_bad_redaction($rect, $text))
           {
@@ -512,7 +513,11 @@ sub get_objects_for_page
     ($rects_ref, $texts_ref) = parse_pagetree($pagetree, $pagenum, \%mediabox);
 
     push @rects, @$rects_ref;
-    push @texts, @$texts_ref;
+
+    # We discard texts_ref because the CAM::PDF rendering functionality works
+    # better than parse_pagetree does.
+
+    push @texts, get_text_rects($pagetree, $pagenum);
 
     @properties = $pdf->getPropertyNames($pagenum);
   };
@@ -559,6 +564,8 @@ sub get_objects_for_page
       my $tree = CAM::PDF::Content->new($content);
       ($rects_ref, $texts_ref) = 
               parse_pagetree($tree, $pagenum, \%mediabox);
+
+      $texts_ref = get_text_rects($tree, $pagenum);
 
       push @rects, @$rects_ref;
       push @texts, @$texts_ref;
