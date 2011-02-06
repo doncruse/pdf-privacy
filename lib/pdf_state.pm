@@ -735,8 +735,9 @@ sub process_text
   my $self = shift;
   my $text = shift;
   my $hoffset = shift;
+  my $width = shift;
 
-  my $text_width = $self->get_text_width($text,$hoffset)
+  my $text_width = $self->get_text_width($text,$hoffset, $width)
                     * $self->{text_matrix}->get_xscale
                     * $self->{ct_matrix}->get_xscale;
   my $text_height = $self->{font_size} 
@@ -875,22 +876,23 @@ sub process_tj
     return;
   }
 
-  $self->process_text($args[0]->{value}, 0);
+  $self->process_text($args[0]->{value}, 0, 0);
 }
 
-# The "real" PDF spec creates a new text object for every text-drawing
-# operation, but we'd like to deal with fewer text objects and our layout
-# algorithm isn't that precise anyway. So we just maintain a variable
-# called hoffset that tells us how wide the text string is so far.
-# Here we update it based on new text.
+# Compute the width of $text. I forget what $hoffset does, but this comment
+# should be fixed when I figure it out.
 
 sub get_text_width
 {
   my $self = shift;
   my $text = shift;
   my $hoffset = shift;
+  my $width = shift;
 
-  my $width = get_width_for_string($text);
+  if($width == 0)
+  {
+    my $width = get_width_for_string($text);
+  }
 
   my $char_spacing = $self->{char_spacing} * length($text);
  
@@ -913,7 +915,7 @@ sub get_width_for_string
 {
   my $text = shift;
 
-  return 0.5 * length($text);
+  return 0.50 * length($text);
 }
 
 
@@ -954,12 +956,12 @@ sub process_cap_tj
 
       if($off <-1000)
       {
-        $self->process_text($text, $hoffset);
+        $self->process_text($text, $hoffset, 0);
 
         $text = '';
         $hoffset = 0;
 
-        my $jump = $self->get_text_width("",$off)
+        my $jump = $self->get_text_width("",$off, 0)
                  * $self->{text_matrix}->get_xscale
                  * $self->{ct_matrix}->get_xscale;
 
@@ -984,7 +986,7 @@ sub process_cap_tj
     }
   }
 
-  $self->process_text($text, $hoffset);
+  $self->process_text($text, $hoffset, 0);
 }
 
 # The PDF spec gives us at least two ways to define a rectangle: with the "re"

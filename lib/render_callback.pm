@@ -24,10 +24,11 @@ sub renderText
 {
   my $self = shift;
   my $string = shift;
+  my $width = shift;
 
   my $state = pdf_state->new_from_node($self, $pagenum);
 
-  $state->process_text($string,0);
+  $state->process_text($string,0,$width);
 
   push @list, $state->{objects}->[0];
 }
