@@ -25,13 +25,7 @@ sub renderText
   my $self = shift;
   my $string = shift;
 
-  my $dumper = new Dumpvalue;
-
-  my ($xu, $yu) = $self->textToUser(0, 0);
-  my ($xd, $yd) = $self->userToDevice($xu, $yu);
-
   my $state = pdf_state->new_from_node($self, $pagenum);
-
 
   $state->process_text($string,0);
 
