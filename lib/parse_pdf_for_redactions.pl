@@ -88,6 +88,23 @@ sub is_bad_redaction
   my $text_left   = $text->{x};
   my $text_right  = $text->{x} + $text->{width};
 
+  # This is a huge hack to deal with the fact that we don't care about
+  # "redacting" whitespace. It's too much work to compute the exact width of
+  # whitespace, so we approximate and say that the average space character is
+  # 0.2 text units and the average font is 10 point, giving us an average
+  # width of 2.0. We don't care *too* much about edge cases because slight
+  # overlaps aren't the kind of thing we're most worried about.
+
+  if($text->{text} =~ /(\s+)\S/)
+  {
+    $text_left += 2;
+  }
+
+  if($text->{text} =~ /\S(\s+)$/)
+  {
+    $text_right -= 2;
+  }
+
   my $rect_bottom = $rect->{y};
   my $rect_top    = $rect->{y} + $rect->{height};
   my $rect_left   = $rect->{x};
