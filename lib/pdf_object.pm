@@ -24,7 +24,7 @@ sub to_string
   if($self->{type} eq 'text')
   {
     return "Text object (".$self->{x}.", ".$self->{y}.") [".
-         $self->{width}." by ".$self->{height}."]: ".$self->{text};
+         $self->{width}." by ".$self->{height}.']: "'.$self->{text}.'"';
   }
   if($self->{type} eq 'rect')
   {
