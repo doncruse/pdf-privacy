@@ -96,7 +96,7 @@ sub is_bad_redaction
   return 0 if($rect_bottom > $text_middle);
   return 0 if($rect_top    < $text_middle);
   return 0 if($rect_left   > $text_right-2.5);
-  return 0 if($rect_right  < $text_left+2.5;
+  return 0 if($rect_right  < $text_left+2.5);
   return 1;
 }
 
