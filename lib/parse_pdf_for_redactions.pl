@@ -2,7 +2,7 @@
 
 # This is my big rectangle-finding library. It requires the CAM::PDF library.
 
-my $debug = 0;
+my $debug = 6;
 
 use 5.006;
 use warnings;
@@ -55,7 +55,14 @@ sub get_bad_redactions
         {
           if(is_bad_redaction($rect, $text))
           {
-             $redacted_text .= $text->{text};
+            if($debug>1)
+            {
+              print "Bad redaction!\n";
+              print "Rect is ".$rect->to_string."\n";
+              print "Text is ".$text->to_string."\n";
+            }
+
+            $redacted_text .= $text->{text};
           }
         }
       }
@@ -68,6 +75,9 @@ sub get_bad_redactions
 
   return \%redactions;
 }
+
+# return 1 if the given rectangle overlaps "enough" with the given
+# text object.
 
 sub is_bad_redaction
 {
@@ -85,8 +95,8 @@ sub is_bad_redaction
 
   return 0 if($rect_bottom > $text_middle);
   return 0 if($rect_top    < $text_middle);
-  return 0 if($rect_left   > $text_right-1);
-  return 0 if($rect_right  < $text_left+1);
+  return 0 if($rect_left   > $text_right-2.5);
+  return 0 if($rect_right  < $text_left+2.5;
   return 1;
 }
 
@@ -522,7 +532,7 @@ sub get_objects_for_page
     @properties = $pdf->getPropertyNames($pagenum);
   };
 
-  if ( $error = $@)
+  if ( $error = $@ && $debug>0)
   {
     warn "Caught error: $error";
   }
@@ -572,7 +582,7 @@ sub get_objects_for_page
 
     };
 
-    if ( $error = $@)
+    if ( $error = $@ && $debug>0)
     {
       warn "Caught error: $error";
     }
