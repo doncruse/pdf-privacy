@@ -93,6 +93,8 @@ sub is_bad_redaction
   my $rect_left   = $rect->{x};
   my $rect_right  = $rect->{x} + $rect->{width};
 
+  return 0 if($text->{text} =~ /^\s+$/);
+
   return 0 if($rect_bottom > $text_middle);
   return 0 if($rect_top    < $text_middle);
   return 0 if($rect_left   > $text_right-2.5);
