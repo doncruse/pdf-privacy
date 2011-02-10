@@ -20,7 +20,7 @@ while(<F>) { $content .= $_; }
 
 my $redactions = get_bad_redactions($content);
 
-foreach(sort keys(%$redactions))
+foreach(sort {$a <=> $b} keys(%$redactions))
 {
   print "Page $_ : ".$redactions->{$_}."\n";
 }
