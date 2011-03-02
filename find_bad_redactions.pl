@@ -1,7 +1,5 @@
 #!/usr/bin/perl
 
-$debug = 5;
-
 if(@ARGV != 1)
 {
   print "Usage: $0 <filename>\n";

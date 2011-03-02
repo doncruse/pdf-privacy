@@ -264,7 +264,6 @@ sub do_fill
     $obj->{page} = $self->{page};
     $obj->{mediabox} = $self->{mediabox};
 
-
     $obj->{fill_color} = $self->{fill_color};
     $obj->{stroke_color} = $self->{stroke_color};
     $obj->{draw_op} = $opname;

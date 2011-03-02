@@ -2,7 +2,7 @@
 
 # This is my big rectangle-finding library. It requires the CAM::PDF library.
 
-my $debug = 6;
+my $debug = 0;
 
 use 5.006;
 use warnings;
@@ -598,7 +598,6 @@ sub get_objects_for_page
 
       push @rects, @$rects_ref;
       push @texts, @$texts_ref;
-
     };
 
     if ( $error = $@ && $debug>0)
@@ -695,9 +694,9 @@ sub parse_pagetree
 	    die 'misconception';
 	  }
 
-          #print "Processing...\n\n";
+          # print "Processing...\n\n";
 
-          #dumpValue($block);
+          # dumpValue($block);
 
           $state->process($block);
 	}
