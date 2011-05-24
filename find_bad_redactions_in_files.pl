@@ -1,5 +1,18 @@
 #!/usr/bin/perl
 
+# find_bad_redactions_in_files.pl -- Given a list of files (the first argument) output a list of files
+# (the second argument) that have bad redactions. Also prints information about the bad redactions to
+# standard out.
+
+# Written in 2011 by Timothy B. Lee, tblee@princeton.edu
+
+# To the extent possible under law, the author(s) have dedicated all copyright and related and neighboring
+# rights to this software to the public domain worldwide. This software is distributed without any warranty.
+
+# You should have received a copy of the CC0 Public Domain Dedication along with this software. If not,
+# see <http://creativecommons.org/publicdomain/zero/1.0/>.
+
+
 $debug = 5;
 
 if(@ARGV != 2)
