@@ -1,5 +1,5 @@
 This is a collection of scripts created by Timothy B. Lee while he was a grad student at Princeton University
-in 2010-11. The code is released into the public domain, as described in the COPYING file.
+in 2010-11. The code is released into the public domain, as described in the "LICENSE" file.
 
 Thanks to Carl Malamud and Public.Resource.org for their support of this project.
 
