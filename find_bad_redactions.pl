@@ -33,7 +33,7 @@ print "\n";
 
 if (keys(%$redactions) eq 0)
 {
-	print "No problems were detected by this script.\n";
+  print "No problems were detected by this script.\n";
 }
 
 foreach(sort {$a <=> $b} keys(%$redactions))
