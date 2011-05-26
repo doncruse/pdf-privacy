@@ -45,6 +45,4 @@ If the PDF is not in the same folder as the script, the FILENAME needs to includ
 
 Using Mac OS X, an easy shortcut is to drag an icon from the Finder onto the Terminal.app console window.  The system then inserts a complete file path, such as "/Users/dc/Desktop/rosenthal_redacted.pdf".
 
-If the system detects a problem, you should see detailed output.  If the system does not detect a problem, it will not report anything at all.  (**TODO: It seems like a message that the file is safe would be better for most users.**)
-
-# Using from the Services Menu / Automator Action
+If the system detects a problem, you should see detailed output showing each page where a problem was detected and the text that was revealed.  If not, you will be told "No problems were detected by this script."

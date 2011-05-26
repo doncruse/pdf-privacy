@@ -29,6 +29,13 @@ while(<F>) { $content .= $_; }
 
 my $redactions = get_bad_redactions($content);
 
+print "\n";
+
+if (keys(%$redactions) eq 0)
+{
+	print "No problems were detected by this script.\n";
+}
+
 foreach(sort {$a <=> $b} keys(%$redactions))
 {
   print "Page $_ : ".$redactions->{$_}."\n";
