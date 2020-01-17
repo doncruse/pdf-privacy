@@ -16,15 +16,15 @@ use 5.006;
 use warnings;
 use strict;
 use Data::Dumper;
-require "lib/pdf_state.pm";
-require "lib/pdf_object.pm";
-require "lib/extract_text_objects.pl";
+require "./lib/pdf_state.pm";
+require "./lib/pdf_object.pm";
+require "./lib/extract_text_objects.pl";
 
 use List::Util qw[min max];
 use CAM::PDF;
 use CAM::PDF::Content;
 
-require "lib/find_xxed_files.pl";
+require "./lib/find_xxed_files.pl";
 
 # Pretty printing for debugging.
 

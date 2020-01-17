@@ -24,7 +24,7 @@ if(@ARGV != 2)
 $filename = $ARGV[0];
 $results = $ARGV[1];
 
-require "lib/parse_pdf_for_redactions.pl";
+require "./lib/parse_pdf_for_redactions.pl";
 
 open(F, $filename);
 
