@@ -14,7 +14,7 @@ use Dumpvalue;
 
 use List::Util qw[min max];
 
-require "lib/pdf_matrix.pm";
+require "./lib/pdf_matrix.pm";
 
 # IIRC, a significant amount of the code in this library is redundant, because CAM::PDF does more than
 # I originally realized. So it's a good idea to use new_from_node to get information about text objects,

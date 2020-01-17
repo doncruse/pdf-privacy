@@ -19,7 +19,7 @@ if(@ARGV != 1)
 
 $filename = $ARGV[0];
 
-require "lib/parse_pdf_for_redactions.pl";
+require "./lib/parse_pdf_for_redactions.pl";
 
 open(F, $filename);
 
